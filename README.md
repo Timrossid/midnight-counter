@@ -1,11 +1,11 @@
-# Midnight Builder Challenge — Level 1: Counter Contract
+﻿# Midnight Builder Challenge â€” Level 1: Counter Contract
 
 A privacy-preserving on-chain counter built with the **Midnight Network** and the
 **Compact** language. Level 1 of the [Midnight Builder Challenge](https://learn.midnight.network).
 
 This project takes a simple public counter and makes it **privacy-aware**: the
 owner's identity is a *commitment* on-chain, never the raw key. It also
-demonstrates the Level 1 requirements — public ledger state, a private witness
+demonstrates the Level 1 requirements â€” public ledger state, a private witness
 as a circuit input, and a deliberate `disclose()`.
 
 ---
@@ -14,11 +14,11 @@ as a circuit input, and a deliberate `disclose()`.
 
 | Component | What it is |
 |---|---|
-| **Contract** | `contracts/counter.compact` — public `count`, `owner` commitment, `round` |
+| **Contract** | `contracts/counter.compact` â€” public `count`, `owner` commitment, `round` |
 | **Circuits** | `initialize`, `increment`, `handOver` |
-| **Tests** | `tests/counter.test.ts` — 6 vitest cases, including privacy checks |
-| **CLI** | `src/cli.ts` — interactive initialize/increment/view/hand-over |
-| **E2E check** | `scripts/e2e-check.ts` — reconnect + query the deployed contract |
+| **Tests** | `tests/counter.test.ts` â€” 6 vitest cases, including privacy checks |
+| **CLI** | `src/cli.ts` â€” interactive initialize/increment/view/hand-over |
+| **E2E check** | `scripts/e2e-check.ts` â€” reconnect + query the deployed contract |
 
 ### Contract Addresses
 
@@ -28,7 +28,7 @@ as a circuit input, and a deliberate `disclose()`.
 | Counter | Preview | `c98aa869dc4ad4d227e9c5961457aaf4af2f8f345dc913235c631af5a776b49b` |
 
 > Addresses are also recorded automatically in `.midnight-state.json`
-> (gitignored — it holds the wallet seed).
+> (gitignored â€” it holds the wallet seed).
 
 ---
 
@@ -46,8 +46,8 @@ demonstrate Midnight's core privacy model. The naive version is a public
 number anyone can see and bump. My version flips that: the counter value is
 still public, but ownership is proven with a zero-knowledge proof against a
 one-way commitment on-chain, and the owner's secret key never leaves the local
-machine. The Level 1 requirements — public ledger state, a private witness fed
-into the circuit as input, and a deliberate `disclose()` — map directly onto
+machine. The Level 1 requirements â€” public ledger state, a private witness fed
+into the circuit as input, and a deliberate `disclose()` â€” map directly onto
 this design and make the privacy guarantees tangible and testable.
 
 ---
@@ -66,9 +66,9 @@ export ledger Ledger {
 }
 ```
 
-- `count` — the counter value, visible to everyone.
-- `owner` — a **hash** of the owner's secret key, not the key itself.
-- `round` — an anti-replay counter bumped on every owner transition.
+- `count` â€” the counter value, visible to everyone.
+- `owner` â€” a **hash** of the owner's secret key, not the key itself.
+- `round` â€” an anti-replay counter bumped on every owner transition.
 
 ### Private witness as a circuit input
 
@@ -102,7 +102,7 @@ commitment so the counter's ownership transition is publicly verifiable:
 owner = disclose(publicKey(newSecretKey, round as Field));
 ```
 
-The raw `newSecretKey` is *not* disclosed — only its hash. See the comment block
+The raw `newSecretKey` is *not* disclosed â€” only its hash. See the comment block
 at the top of `contracts/counter.compact` for the full reasoning.
 
 ### Privacy guarantee (proved by tests)
@@ -152,7 +152,7 @@ npm run network preview
 npm run deploy -- --network preview   # or: npm run setup -- --network preview
 ```
 
-The first run creates a wallet and prints a 24-word recovery phrase — **write it
+The first run creates a wallet and prints a 24-word recovery phrase â€” **write it
 down**. Fund the printed address from the network faucet:
 
 | Network | Faucet |
@@ -166,8 +166,8 @@ down**. Fund the printed address from the network faucet:
 npm run cli -- --network preview
 ```
 
-Menu: **1** initialize · **2** increment · **3** view state · **4** hand over ·
-**5** balance · **6** exit.
+Menu: **1** initialize Â· **2** increment Â· **3** view state Â· **4** hand over Â·
+**5** balance Â· **6** exit.
 
 ### Wallet commands
 
@@ -201,40 +201,40 @@ The unit tests run the real compiled circuits through a local `CounterSimulator`
 
 ```
 my-project/
-├── contracts/counter.compact    # the Midnight (Compact) contract
-├── managed/counter/             # generated: keys, contract, ZKIR, circuits
-├── src/
-│   ├── deploy.ts                # deploy + wallet/proof wiring
-│   ├── cli.ts                   # interactive CLI
-│   ├── setup.ts                 # orchestrated setup
-│   ├── network.ts               # network/wallet/state helpers
-│   └── wallet.ts                # wallet sync helpers
-├── tests/
-│   ├── counter.test.ts          # 6 tests
-│   ├── counter-simulator.ts     # local circuit runner
-│   └── witnesses.ts             # private-state type + witness impl
-├── scripts/e2e-check.ts         # read-only on-chain smoke check
-└── docker-compose.yml           # local devnet (node, indexer, proof-server)
+â”œâ”€â”€ contracts/counter.compact    # the Midnight (Compact) contract
+â”œâ”€â”€ managed/counter/             # generated: keys, contract, ZKIR, circuits
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ deploy.ts                # deploy + wallet/proof wiring
+â”‚   â”œâ”€â”€ cli.ts                   # interactive CLI
+â”‚   â”œâ”€â”€ setup.ts                 # orchestrated setup
+â”‚   â”œâ”€â”€ network.ts               # network/wallet/state helpers
+â”‚   â””â”€â”€ wallet.ts                # wallet sync helpers
+â”œâ”€â”€ tests/
+â”‚   â”œâ”€â”€ counter.test.ts          # 6 tests
+â”‚   â”œâ”€â”€ counter-simulator.ts     # local circuit runner
+â”‚   â””â”€â”€ witnesses.ts             # private-state type + witness impl
+â”œâ”€â”€ scripts/e2e-check.ts         # read-only on-chain smoke check
+â””â”€â”€ docker-compose.yml           # local devnet (node, indexer, proof-server)
 ```
 
 ---
 
 ## Screenshots
 
-_Placeholder — add screenshots of the CLI session (initialize, increment, view
+_Placeholder â€” add screenshots of the CLI session (initialize, increment, view
 state) showing the deployed contract on preview._
 
 ### Initialize
 
-![CLI initialize](docs/cli-initialize.png.png)
+![CLI initialize](docs/cli-initialize.png)
 
 ### Increment
 
-![CLI increment](docs/cli-increment.png.png)
+![CLI increment](docs/cli-increment.png)
 
 ### View state
 
-![CLI view state](docs/cli-view-state.png.png)
+![CLI view state](docs/cli-view-state.png)
 
 ---
 
@@ -242,17 +242,17 @@ state) showing the deployed contract on preview._
 
 | Requirement | Status |
 |---|---|
-| Step 1 — toolchain installed & verified (WSL) | ✅ |
-| Step 1 — proof server running | ✅ |
-| Step 3 — hello-world deployed to preview | ✅ |
-| Step 4 — counter contract written (`counter.compact`) | ✅ |
-| Step 4 — public ledger state | ✅ |
-| Step 4 — private witness as circuit input (`localSecretKey`) | ✅ |
-| Step 4 — deliberate `disclose()` + comment block | ✅ |
-| Step 5 — 3+ tests | ✅ (6 tests) |
-| Step 6 — README with all required sections | ✅ |
-| Contract address in README | ✅ |
-| 5+ meaningful commits | ✅ (7 commits) |
+| Step 1 â€” toolchain installed & verified (WSL) | âœ… |
+| Step 1 â€” proof server running | âœ… |
+| Step 3 â€” hello-world deployed to preview | âœ… |
+| Step 4 â€” counter contract written (`counter.compact`) | âœ… |
+| Step 4 â€” public ledger state | âœ… |
+| Step 4 â€” private witness as circuit input (`localSecretKey`) | âœ… |
+| Step 4 â€” deliberate `disclose()` + comment block | âœ… |
+| Step 5 â€” 3+ tests | âœ… (6 tests) |
+| Step 6 â€” README with all required sections | âœ… |
+| Contract address in README | âœ… |
+| 5+ meaningful commits | âœ… (7 commits) |
 
 ---
 
