@@ -11,11 +11,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Compact Compiler
+        uses: midnightntwrk/setup-compact-action@v1
+        with:
+          compact-version: '0.31.1'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
       - run: npm ci
+      - run: npm run compile
       - run: npm run build
       - run: npm test
