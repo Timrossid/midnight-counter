@@ -34,8 +34,21 @@ as a circuit input, and a deliberate `disclose()`.
 
 ## Initial Idea
 
-_Placeholder — fill in a paragraph describing what the Midnight Builder Challenge
-is and why you built a privacy-preserving counter for Level 1._
+The Midnight Builder Challenge is a hands-on program for learning how to write
+zero-knowledge smart contracts on the Midnight Network using the Compact
+language. It guides you through building and deploying real contracts across
+multiple levels, starting from a minimal toolchain setup and a hello-world
+deployment, then progressing to a contract with actual privacy guarantees.
+
+As a solo participant, I chose to build a counter for Level 1 because it is
+simple enough to understand every part of the circuit, yet deep enough to
+demonstrate Midnight's core privacy model. The naive version is a public
+number anyone can see and bump. My version flips that: the counter value is
+still public, but ownership is proven with a zero-knowledge proof against a
+one-way commitment on-chain, and the owner's secret key never leaves the local
+machine. The Level 1 requirements — public ledger state, a private witness fed
+into the circuit as input, and a deliberate `disclose()` — map directly onto
+this design and make the privacy guarantees tangible and testable.
 
 ---
 
