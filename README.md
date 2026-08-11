@@ -224,6 +224,18 @@ my-project/
 _Placeholder — add screenshots of the CLI session (initialize, increment, view
 state) showing the deployed contract on preview._
 
+### Initialize
+
+![CLI initialize](docs/cli-initialize.png.png)
+
+### Increment
+
+![CLI increment](docs/cli-increment.png.png)
+
+### View state
+
+![CLI view state](docs/cli-view-state.png.png)
+
 ---
 
 ## Final Checklist
