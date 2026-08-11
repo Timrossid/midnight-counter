@@ -201,20 +201,20 @@ The unit tests run the real compiled circuits through a local `CounterSimulator`
 
 ```
 my-project/
-â”œâ”€â”€ contracts/counter.compact    # the Midnight (Compact) contract
-â”œâ”€â”€ managed/counter/             # generated: keys, contract, ZKIR, circuits
-â”œâ”€â”€ src/
-â”‚   â”œâ”€â”€ deploy.ts                # deploy + wallet/proof wiring
-â”‚   â”œâ”€â”€ cli.ts                   # interactive CLI
-â”‚   â”œâ”€â”€ setup.ts                 # orchestrated setup
-â”‚   â”œâ”€â”€ network.ts               # network/wallet/state helpers
-â”‚   â””â”€â”€ wallet.ts                # wallet sync helpers
-â”œâ”€â”€ tests/
-â”‚   â”œâ”€â”€ counter.test.ts          # 6 tests
-â”‚   â”œâ”€â”€ counter-simulator.ts     # local circuit runner
-â”‚   â””â”€â”€ witnesses.ts             # private-state type + witness impl
-â”œâ”€â”€ scripts/e2e-check.ts         # read-only on-chain smoke check
-â””â”€â”€ docker-compose.yml           # local devnet (node, indexer, proof-server)
+├── contracts/counter.compact    # the Midnight (Compact) contract
+├── managed/counter/             # generated: keys, contract, ZKIR, circuits
+├── src/
+│   ├── deploy.ts                # deploy + wallet/proof wiring
+│   ├── cli.ts                   # interactive CLI
+│   ├── setup.ts                 # orchestrated setup
+│   ├── network.ts               # network/wallet/state helpers
+│   └── wallet.ts                # wallet sync helpers
+├── tests/
+│   ├── counter.test.ts          # 6 tests
+│   ├── counter-simulator.ts     # local circuit runner
+│   └── witnesses.ts             # private-state type + witness impl
+├── scripts/e2e-check.ts         # read-only on-chain smoke check
+└── docker-compose.yml           # local devnet (node, indexer, proof-server)
 ```
 
 ---
