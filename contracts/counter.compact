@@ -1,0 +1,91 @@
+pragma language_version >= 0.23;
+
+// =============================================================================
+// counter.compact — a privacy-preserving on-chain counter for the Midnight
+// Builder Challenge (Level 1).
+//
+// PRIVACY MODEL
+// -------------
+// PUBLIC (on-chain, visible to anyone):
+//   - `count`  : the current counter value (Uint<64>)
+//   - `owner`  : a cryptographic commitment to the current owner's identity.
+//                Stored as a hash (persistentHash), it cannot be reversed to
+//                recover the secret key.
+//
+// PRIVATE (private witness, never on-chain):
+//   - `localSecretKey()` : a witness that runs off-chain on the caller's
+//                          machine. It returns the caller's secret key, which
+//                          is used only inside the ZK circuit to prove
+//                          ownership. It is never written to the ledger.
+//
+// WHAT THE USER PROVES WITHOUT REVEALING:
+//   - That they know the secret key matching the stored `owner` commitment
+//     (via a ZK proof), without ever revealing the secret key itself.
+//   - That the new counter value is exactly the old value + 1.
+//
+// `disclose()` is used deliberately in exactly two places:
+//   1. `owner` — we intentionally publish a one-way hash of the owner's secret
+//      key so anyone can verify who owns the counter without revealing the key.
+//   2. `count` — the counter value itself is public state.
+// =============================================================================
+
+import CompactStandardLibrary;
+
+// Public ledger state — visible on-chain to everyone.
+export ledger count: Uint<64>;
+// Public commitment (hash) of the current owner's secret key.
+export ledger owner: Bytes<32>;
+// Public counter for authorizing takedown operations.
+export ledger round: Counter;
+
+// Private witness — implemented off-chain by the TypeScript DApp.
+// Returns the caller's secret key. Never leaves the local machine.
+witness localSecretKey(): Bytes<32>;
+
+// Helper circuit: derives a DApp-specific public key from a secret key.
+// Because it is a hash, it can safely be stored publicly without revealing
+// the secret key.
+circuit publicKey(sk: Bytes<32>, seq: Field): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([
+    pad(32, "midnight:builder:counter:pk"),
+    seq as Bytes<32>,
+    sk,
+  ]);
+}
+
+export circuit initialize(): [] {
+  const sk = localSecretKey();
+  owner = disclose(publicKey(sk, round));
+  count = disclose(0);
+}
+
+export circuit increment(): [] {
+  // Only the current owner may increment the counter.
+  const sk = localSecretKey();
+  assert(
+    owner == publicKey(sk, round),
+    "Only the current owner can increment the counter"
+  );
+  // Guard against Uint<64> overflow before widening the range.
+  assert(count < 18446744073709551615, "Counter overflow");
+  // The counter value is intentionally public — disclose() marks the value
+  // derived from the (private) old state as safe to publish. The arithmetic
+  // result widens beyond Uint<64>, so it is cast back after the overflow
+  // guard above.
+  count = disclose((count + 1) as Uint<64>);
+}
+
+export circuit handOver(newSecretKey: Bytes<32>): [] {
+  // Only the current owner may hand over ownership.
+  const sk = localSecretKey();
+  assert(
+    owner == publicKey(sk, round),
+    "Only the current owner can hand over the counter"
+  );
+  // Increment the round first so the new owner's commitment is bound to the
+  // new round value. This prevents replaying the old owner's authorization.
+  round.increment(1);
+  // The new owner's key is hashed before being published; the raw key stays
+  // private. This is a deliberate disclose of a derived (hashed) value.
+  owner = disclose(publicKey(newSecretKey, round as Field));
+}
