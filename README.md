@@ -221,6 +221,14 @@ my-project/
 
 ## Screenshots
 
+### Successful compile output
+
+![Compile output](docs/Compile%20output.png)
+
+### Contract deployed with address
+
+![Deployed address](docs/Deployed%20address.png)
+
 ### Initialize
 
 ![CLI initialize](docs/cli-initialize.png)
