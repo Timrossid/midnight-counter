@@ -227,7 +227,7 @@ state) showing the deployed contract on preview._
 | Step 5 — 3+ tests | ✅ (6 tests) |
 | Step 6 — README with all required sections | ✅ |
 | Contract address in README | ✅ |
-| 5+ meaningful commits | ⚠️ (to do) |
+| 5+ meaningful commits | ✅ (7 commits) |
 
 ---
 
