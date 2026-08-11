@@ -221,9 +221,6 @@ my-project/
 
 ## Screenshots
 
-_Placeholder â€” add screenshots of the CLI session (initialize, increment, view
-state) showing the deployed contract on preview._
-
 ### Initialize
 
 ![CLI initialize](docs/cli-initialize.png)
