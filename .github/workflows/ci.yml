@@ -25,5 +25,13 @@ jobs:
 
       - run: npm ci
       - run: npm run compile
+
+      - name: Upload compile artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: managed-counter
+          path: managed/counter/
+          retention-days: 30
+
       - run: npm run build
       - run: npm test

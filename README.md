@@ -1,5 +1,7 @@
 # Midnight Builder Challenge — Level 1: Counter Contract
 
+[![CI](https://github.com/Timrossid/midnight-counter/actions/workflows/ci.yml/badge.svg)](https://github.com/Timrossid/midnight-counter/actions/workflows/ci.yml)
+
 A privacy-preserving on-chain counter built with the **Midnight Network** and the
 **Compact** language. Level 1 of the [Midnight Builder Challenge](https://learn.midnight.network).
 
