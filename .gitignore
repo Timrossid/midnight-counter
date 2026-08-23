@@ -58,5 +58,12 @@ temp/
 # Midnight network state (per-network seeds, deploy addresses)
 .midnight-state.json
 
+# Frontend generated artifacts (copied from managed/ at dev/build time)
+frontend/public/keys/
+frontend/public/zkir/
+frontend/.vite/
+frontend/dev.log
+frontend/dev.err
+
 # Midnight wallet sync state (per-network serialized wallet state cache)
 .midnight-wallet-state/

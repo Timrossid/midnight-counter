@@ -185,6 +185,43 @@ npm run check-balance -- --network preview
 npm run network          # show active network + last deploy
 ```
 
+### Frontend (Web DApp)
+
+A browser frontend (`frontend/`) connects to the **Lace** wallet and talks to the
+same `counter` contract — initialize, increment, hand over, and read the public
+state live from the indexer. It satisfies the Builder Challenge "Frontend
+Integration" requirement.
+
+```bash
+# 1. Compile the contract (generates managed/counter/{keys,zkir}) — required once.
+npm run compile
+
+# 2. Start a proof server for Preview (the browser sends proofs here).
+docker run -d -p 6300:6300 midnightntwrk/proof-server:8.1.0 \
+  -- midnight-proof-server --network preview
+
+# 3. Install + run the frontend (Vite dev server on :3000).
+cd frontend
+npm install
+npm run dev
+```
+
+Open <http://localhost:3000> in Chrome with the **Lace (Midnight)** extension
+installed and unlocked. The default Preview contract address is set in
+`frontend/.env` (`VITE_DEFAULT_CONTRACT`); change it to deploy/connect to a
+different instance via the in-UI "Switch Contract" panel.
+
+| What the UI does | How |
+|---|---|
+| Reads count / owner / round | `indexerPublicDataProvider` + `Counter.ledger` (no wallet needed) |
+| Submits transactions | Lace DApp Connector → `balanceTx`/`submitTx` |
+| Generates ZK proofs | `httpClientProofProvider` → proof server on `:6300` |
+| Loads circuit keys | `FetchZkConfigProvider` from `window.location.origin/{keys,zkir}` |
+
+> The owner's secret key is generated once and stored in `localStorage`; only
+> its hash (`owner` commitment) ever touches the chain — same privacy model as
+> the CLI.
+
 ---
 
 ## Run Tests
