@@ -167,6 +167,12 @@ code {
   margin-top: 0.75rem;
 }
 
+.privacy-note {
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  margin: 0.75rem 0 0;
+}
+
 footer {
   margin-top: 2rem;
   font-size: 0.8rem;
