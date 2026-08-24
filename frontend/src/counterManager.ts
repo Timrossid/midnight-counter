@@ -28,7 +28,7 @@ import {
 } from '@midnight-ntwrk/midnight-js-protocol/ledger';
 import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import type { UnboundTransaction } from '@midnight-ntwrk/midnight-js-types';
-import { CompiledContract } from '@midnight-ntwrk/midnight-js-protocol/compact-js';
+import * as CompiledContract from '@midnight-ntwrk/compact-js/effect/CompiledContract';
 import { Buffer } from 'buffer';
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import * as CounterContract from '@contract';
@@ -55,9 +55,10 @@ const counterWitnesses = {
 // defaults (which collapse to `never` without the generated contract types
 // present at type-check time) don't block compilation. The resulting value is
 // passed as `any` to deployContract/findDeployedContract below.
-const compiledContract: any = (CompiledContract as any)
-  .make('counter', CounterContract.Contract)
-  .withWitnesses(counterWitnesses);
+const compiledContract: any = CompiledContract.withWitnesses(
+  CompiledContract.make('counter', CounterContract.Contract),
+  counterWitnesses,
+);
 
 const COMPATIBLE_CONNECTOR_API_VERSION = '4.x';
 
@@ -120,49 +121,70 @@ export interface CounterProviders {
   midnightProvider: { submitTx: (tx: FinalizedTransaction) => Promise<TransactionId> };
 }
 
-function initializeProviders(logger: Logger): Promise<CounterProviders> {
+async function initializeProviders(logger: Logger): Promise<CounterProviders> {
   const networkId = NETWORK_ID as NetworkId;
   setNetworkId(networkId);
-  return connectToWallet(logger, networkId).then(async (connectedAPI) => {
-    const config = await connectedAPI.getConfiguration();
-    const proofServerUri = config.proverServerUri ?? 'http://127.0.0.1:6300';
-    const shieldedAddresses = await connectedAPI.getShieldedAddresses();
-    const zkConfigProvider = new FetchZkConfigProvider<any>(window.location.origin, fetch.bind(window));
-    return {
-      privateStateProvider: inMemoryPrivateStateProvider<string, { secretKey: string }>(),
-      zkConfigProvider,
-      proofProvider: httpClientProofProvider(proofServerUri, zkConfigProvider),
-      publicDataProvider: indexerPublicDataProvider(config.indexerUri, config.indexerWsUri),
-      walletProvider: {
-        getCoinPublicKey: () => shieldedAddresses.shieldedCoinPublicKey,
-        getEncryptionPublicKey: () => shieldedAddresses.shieldedEncryptionPublicKey,
-        balanceTx: async (tx: UnboundTransaction): Promise<FinalizedTransaction> => {
-          const received = await connectedAPI.balanceUnsealedTransaction(toHex(tx.serialize()));
-          return Transaction.deserialize<SignatureEnabled, Proof, Binding>(
-            'signature',
-            'proof',
-            'binding',
-            fromHex(received.tx),
-          );
-        },
+  const connectedAPI = await connectToWallet(logger, networkId);
+  const walletNetwork = (connectedAPI as { networkId?: NetworkId }).networkId;
+  if (walletNetwork && walletNetwork !== networkId) {
+    throw new Error(
+      `Network mismatch: your Lace wallet is on '${walletNetwork}' but this app requires '${networkId}'. ` +
+        `Switch Lace to the ${networkId} network and reconnect.`,
+    );
+  }
+  const config = await connectedAPI.getConfiguration();
+  const proofServerUri = config.proverServerUri ?? 'http://127.0.0.1:6300';
+  const shieldedAddresses = await connectedAPI.getShieldedAddresses();
+  const { unshieldedAddress } = await connectedAPI.getUnshieldedAddress();
+  const zkConfigProvider = new FetchZkConfigProvider<any>(window.location.origin, fetch.bind(window));
+  return {
+    privateStateProvider: inMemoryPrivateStateProvider<string, { secretKey: string }>(),
+    zkConfigProvider,
+    proofProvider: httpClientProofProvider(proofServerUri, zkConfigProvider),
+    publicDataProvider: indexerPublicDataProvider(config.indexerUri, config.indexerWsUri),
+    walletProvider: {
+      getCoinPublicKey: () => shieldedAddresses.shieldedCoinPublicKey,
+      getEncryptionPublicKey: () => shieldedAddresses.shieldedEncryptionPublicKey,
+      balanceTx: async (tx: UnboundTransaction): Promise<FinalizedTransaction> => {
+        const received = await connectedAPI.balanceUnsealedTransaction(toHex(tx.serialize()));
+        return Transaction.deserialize<SignatureEnabled, Proof, Binding>(
+          'signature',
+          'proof',
+          'binding',
+          fromHex(received.tx),
+        );
       },
-      midnightProvider: {
-        submitTx: async (tx: FinalizedTransaction): Promise<TransactionId> => {
-          await connectedAPI.submitTransaction(toHex(tx.serialize()));
-          return tx.identifiers()[0];
-        },
+    },
+    midnightProvider: {
+      submitTx: async (tx: FinalizedTransaction): Promise<TransactionId> => {
+        await connectedAPI.submitTransaction(toHex(tx.serialize()));
+        return tx.identifiers()[0];
       },
-    };
-  });
+    },
+    // Exposed for the hook to read the connected address without re-querying.
+    ...({ walletAddress: unshieldedAddress, walletNetworkId: walletNetwork } as object),
+  } as CounterProviders & { walletAddress: string; walletNetworkId?: NetworkId };
 }
 
 export class CounterManager {
   readonly #deploymentsSubject = new BehaviorSubject<Array<BehaviorSubject<CounterDeployment>>>([]);
   #initializedProviders: Promise<CounterProviders> | undefined;
+  #walletAddress: string | undefined;
+  #walletNetworkId: NetworkId | undefined;
 
   constructor(private readonly logger: Logger) {}
 
   readonly deployments$: Observable<Array<Observable<CounterDeployment>>> = this.#deploymentsSubject;
+
+  /** The connected wallet's transparent address (set after a successful connect). */
+  get address(): string | undefined {
+    return this.#walletAddress;
+  }
+
+  /** The network the connected wallet reported (used to detect mismatches). */
+  get walletNetworkId(): NetworkId | undefined {
+    return this.#walletNetworkId;
+  }
 
   resolve(contractAddress?: ContractAddress): Observable<CounterDeployment> {
     const deployments = this.#deploymentsSubject.value;
@@ -181,7 +203,20 @@ export class CounterManager {
   }
 
   private getProviders(): Promise<CounterProviders> {
-    return this.#initializedProviders ?? (this.#initializedProviders = initializeProviders(this.logger));
+    if (!this.#initializedProviders) {
+      this.#initializedProviders = initializeProviders(this.logger)
+        .then((providers) => {
+          const extra = providers as unknown as { walletAddress?: string; walletNetworkId?: NetworkId };
+          this.#walletAddress = extra.walletAddress;
+          this.#walletNetworkId = extra.walletNetworkId;
+          return providers;
+        })
+        .catch((error) => {
+          this.#initializedProviders = undefined;
+          throw error;
+        });
+    }
+    return this.#initializedProviders;
   }
 
   private async run(
