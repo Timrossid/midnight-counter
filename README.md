@@ -196,9 +196,9 @@ Integration" requirement.
 # 1. Compile the contract (generates managed/counter/{keys,zkir}) — required once.
 npm run compile
 
-# 2. Start a proof server for Preview (the browser sends proofs here).
+# 2. Start a proof server for Preprod (the browser sends proofs here).
 docker run -d -p 6300:6300 midnightntwrk/proof-server:8.1.0 \
-  -- midnight-proof-server --network preview
+  -- midnight-proof-server --network preprod
 
 # 3. Install + run the frontend (Vite dev server on :3000).
 cd frontend
@@ -207,7 +207,7 @@ npm run dev
 ```
 
 Open <http://localhost:3000> in Chrome with the **Lace (Midnight)** extension
-installed and unlocked. The default Preview contract address is set in
+installed and unlocked. The default Preprod contract address is set in
 `frontend/.env` (`VITE_DEFAULT_CONTRACT`); change it to deploy/connect to a
 different instance via the in-UI "Switch Contract" panel.
 
@@ -221,6 +221,128 @@ different instance via the in-UI "Switch Contract" panel.
 > The owner's secret key is generated once and stored in `localStorage`; only
 > its hash (`owner` commitment) ever touches the chain — same privacy model as
 > the CLI.
+
+---
+
+## Level 2 — Frontend DApp (Browser)
+
+This project adds a **browser DApp** (React + Vite) that connects to the same
+`counter` contract through the **Lace** wallet and proves ownership with a
+zero-knowledge proof — no raw secret key ever touches the chain or the UI.
+
+### Live Demo
+
+**https://midnight-counter.vercel.app/**
+
+### Contract Address
+
+| Network  | Address                                                            |
+|----------|-------------------------------------------------------------------|
+| Preprod  | `f41078849af4602cc2e9eba6a94c61b57294b944f287c66292e6f666ea9d8269` |
+
+(Contract address is mandatory and must match the contract you deployed in Level 1.)
+
+### What This Does
+
+The DApp lets anyone with the Lace wallet open a web page that:
+
+1. **Connects** to the user's Lace (Midnight) wallet and shows the connected
+   address.
+2. **Reads** the live counter state (`count`, `owner` commitment, `round`)
+   straight from the Preprod indexer — no wallet required to view.
+3. **Calls the `increment` circuit** with a single button. The browser generates
+   a zero-knowledge proof locally (against the proof server) that the caller
+   knows the private owner secret key, then submits the transaction on-chain.
+4. Shows a **loading state** while the proof is being generated, then the new
+   on-chain count after submission.
+
+### Privacy Model
+
+- **What is PUBLIC:** the counter `count`, the `owner` *commitment* (a hash of
+  the secret key, not the key), the `round`, and the transaction itself.
+- **What is PRIVATE:** the owner's secret key (kept in the browser's local
+  private state / `localStorage`). It is fed into the circuit as a **witness**
+  and never appears in the transaction inputs, the ledger, or the UI.
+- **What the user PROVES without revealing:** knowledge of the secret owner key.
+  The `increment` circuit checks `sha256(secretKey) == ownerCommitment` inside
+  the proof, so the chain learns only that *some* valid key was used — not the
+  key itself.
+
+### Privacy Claim
+
+> An on-chain observer can see the counter value increase and the owner
+> commitment change, but **cannot** learn *who* the owner is or what the secret
+> key is. The `increment` transaction carries a zero-knowledge proof that the
+> caller knows the owner secret key, without revealing that key — only its
+> commitment is ever published.
+
+### Tech Stack
+
+Midnight Network · Compact (smart contract) · Midnight.js SDK
+(`@midnight-ntwrk/midnight-js-*`) · React + Vite · Lace wallet (DApp Connector).
+
+### Prerequisites
+
+- **Lace wallet** installed (the Midnight-enabled browser extension), unlocked.
+- **Node.js v22** (use `nvm` on WSL/macOS; Windows via WSL).
+- A **Preprod**-funded wallet (faucet: <https://midnight-tmnight-preprod.nethermind.dev>).
+- Docker (to run the proof server locally) — or rely on Lace's built-in proof
+  server.
+
+### Run Locally
+
+```bash
+# 1. Clone + install root (Level 1) deps
+git clone https://github.com/Timrossid/midnight-counter.git
+cd midnight-counter
+npm install
+npm run compile          # generates managed/counter/{keys,zkir}
+
+# 2. Start a Preprod proof server on :6300
+docker run -d -p 6300:6300 midnightntwrk/proof-server:8.1.0 \
+  -- midnight-proof-server --network preprod
+
+# 3. Run the frontend
+cd frontend
+npm install
+npm run dev              # http://localhost:3000
+```
+
+Open <http://localhost:3000> in Chrome with Lace installed and unlocked. The
+app auto-connects to the Preprod contract above; use **Switch Contract** to
+point at a different deployment or **Deploy New** to become the owner of a fresh
+counter.
+
+### Deploy the Frontend
+
+Deploy config is committed at the repo root:
+
+- `vercel.json` — Vercel project settings (builds `frontend/`, SPA rewrite).
+- `netlify.toml` — Netlify build (base `frontend/`, publish `dist`, SPA redirect).
+
+**Vercel (CLI):**
+
+```bash
+npm i -g vercel
+vercel login
+vercel                       # pick "frontend" as the root? No — root has vercel.json
+# (vercel.json points the build at frontend/ automatically)
+```
+
+**Netlify (CLI):**
+
+```bash
+npm i -g netlify-cli
+netlify login
+netlify init                 # detects netlify.toml; choose "frontend" as the base
+netlify deploy --prod
+```
+
+After deploy, paste the live URL into the **Live Demo** section above.
+
+### Demo Video
+
+[PLACEHOLDER — I will add the link after recording]
 
 ---
 
@@ -249,6 +371,21 @@ The unit tests run the real compiled circuits through a local `CounterSimulator`
 my-project/
 ├── contracts/counter.compact    # the Midnight (Compact) contract
 ├── managed/counter/             # generated: keys, contract, ZKIR, circuits
+├── frontend/                    # Level 2 browser DApp (React + Vite)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── WalletConnect.tsx   # connect/disconnect + address + error states
+│   │   │   └── CircuitCall.tsx     # increment circuit, local proof, privacy label
+│   │   ├── hooks/
+│   │   │   └── useMidnight.ts       # Midnight.js SDK hook (context provider)
+│   │   ├── counterManager.ts        # deploy/find + providers wiring
+│   │   ├── useCounter.ts            # indexer polling of count/owner/round
+│   │   ├── constants.ts             # network + contract config
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── public/                      # keys/zkir copied here at build time
+│   ├── vite.config.ts
+│   └── package.json
 ├── src/
 │   ├── deploy.ts                # deploy + wallet/proof wiring
 │   ├── cli.ts                   # interactive CLI
@@ -260,6 +397,8 @@ my-project/
 │   ├── counter-simulator.ts     # local circuit runner
 │   └── witnesses.ts             # private-state type + witness impl
 ├── scripts/e2e-check.ts         # read-only on-chain smoke check
+├── vercel.json                  # Level 2 frontend deploy config (Vercel)
+├── netlify.toml                 # Level 2 frontend deploy config (Netlify)
 └── docker-compose.yml           # local devnet (node, indexer, proof-server)
 ```
 
