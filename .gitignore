@@ -17,6 +17,14 @@ build/
 
 # Contract artifacts
 managed/
+!managed/
+!managed/counter/
+!managed/counter/keys/
+!managed/counter/keys/*.prover
+!managed/counter/keys/*.verifier
+!managed/counter/zkir/
+!managed/counter/zkir/*.zkir
+!managed/counter/zkir/*.bzkir
 contracts/managed/
 
 # Deployment info
