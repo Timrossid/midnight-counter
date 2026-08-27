@@ -15,7 +15,7 @@ import {
   type TransactionId,
 } from '@midnight-ntwrk/midnight-js-protocol/ledger';
 import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
-import type { UnboundTransaction } from '@midnight-ntwrk/midnight-js-types';
+import { createProofProvider, type UnboundTransaction } from '@midnight-ntwrk/midnight-js-types';
 import * as CompiledContract from '@midnight-ntwrk/compact-js/effect/CompiledContract';
 import { Buffer } from 'buffer';
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
@@ -79,7 +79,7 @@ export function getFirstCompatibleWallet(): InitialAPI | undefined {
 export interface CounterProviders {
   privateStateProvider: ReturnType<typeof inMemoryPrivateStateProvider>;
   zkConfigProvider: FetchZkConfigProvider<any>;
-  proofProvider: ReturnType<typeof httpClientProofProvider>;
+  proofProvider: ReturnType<typeof createProofProvider>;
   publicDataProvider: ReturnType<typeof indexerPublicDataProvider>;
   walletProvider: {
     getCoinPublicKey: () => any;
@@ -107,10 +107,20 @@ async function initializeProviders(
   const shieldedAddresses = await connectedAPI.getShieldedAddresses();
   const { unshieldedAddress } = await connectedAPI.getUnshieldedAddress();
   const zkConfigProvider = new FetchZkConfigProvider<any>(window.location.origin, fetch.bind(window));
+  // Prefer proving via the wallet (Lace) itself. This avoids depending on a
+  // localhost proof server, which is unreachable (mixed-content blocked) from a
+  // deployed HTTPS site. Fall back to the HTTP prover for local dev.
+  let proofProvider: ReturnType<typeof createProofProvider>;
+  try {
+    const provingProvider = await connectedAPI.getProvingProvider(zkConfigProvider);
+    proofProvider = createProofProvider(provingProvider as never);
+  } catch {
+    proofProvider = httpClientProofProvider(proofServerUri, zkConfigProvider);
+  }
   return {
     privateStateProvider: inMemoryPrivateStateProvider<string, { secretKey: string }>(),
     zkConfigProvider,
-    proofProvider: httpClientProofProvider(proofServerUri, zkConfigProvider),
+    proofProvider,
     publicDataProvider: indexerPublicDataProvider(config.indexerUri, config.indexerWsUri),
     walletProvider: {
       getCoinPublicKey: () => shieldedAddresses.shieldedCoinPublicKey,
