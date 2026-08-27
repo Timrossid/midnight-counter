@@ -95,14 +95,20 @@ function connectToWallet(logger: Logger, networkId: string): Promise<ConnectedAP
       map(() => getFirstCompatibleWallet()),
       filter((api): api is InitialAPI => !!api),
       timeout({
-        first: 3_000,
-        with: () => throwError(() => new Error('Could not find the Midnight Lace wallet. Install the extension and unlock it.')),
-      }),
+  first: 10_000,
+  with: () =>
+    throwError(
+      () =>
+        new Error(
+          'Could not find the Midnight Lace wallet. Install the extension and unlock it.',
+        ),
+    ),
+}),
       concatMap(async (initialAPI) => initialAPI.connect(networkId)),
       timeout({
-        first: 5_000,
-        with: () => throwError(() => new Error('Lace wallet failed to respond.')),
-      }),
+  first: 30_000,
+  with: () => throwError(() => new Error('Lace wallet failed to respond within 30 seconds.')),
+}),
       catchError((error) => throwError(() => (error instanceof Error ? error : new Error('Wallet not authorized')))),
     ),
   );
@@ -250,9 +256,43 @@ export class CounterManager {
 
       deployment.next({ status: 'deployed', api, address });
     } catch (error: unknown) {
-      this.logger.error({ error }, 'Counter contract operation failed');
-      const err = error instanceof Error ? error : new Error(JSON.stringify(error) || 'Unknown error');
-      deployment.next({ status: 'failed', error: err });
+  console.error('COUNTER DEPLOYMENT ERROR:', error);
+
+  const cause = error instanceof Error ? (error as any).cause : undefined;
+
+  console.error('ERROR DETAILS:', {
+    message: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+    cause,
+  });
+
+  if (cause) {
+    console.error('ERROR CAUSE:', cause);
+
+    try {
+      console.error(
+        'ERROR CAUSE JSON:',
+        JSON.stringify(cause, null, 2),
+      );
+    } catch {
+      console.error('ERROR CAUSE could not be serialized');
     }
+  }
+
+  this.logger.error({ error }, 'Counter contract operation failed');
+
+  const err =
+    error instanceof Error
+      ? new Error(
+          error.message ||
+            'Counter contract operation failed',
+          { cause },
+        )
+      : new Error(
+          JSON.stringify(error) || 'Unknown error',
+        );
+
+  deployment.next({ status: 'failed', error: err });
+}
   }
 }

@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { filter, take } from 'rxjs';
+import { NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import pino from 'pino';
 import { CounterManager, type DeployedCounter } from '../counterManager';
 import { DEFAULT_CONTRACT } from '../constants';
@@ -69,21 +71,27 @@ function useMidnightState(): MidnightContextValue {
   }, []);
 
   const handleDeployment = useCallback(
-    (deployment$: ReturnType<CounterManager['resolve']>, handlers: DeploymentHandlers) => {
-      const sub = deployment$.subscribe({
+  (
+    deployment$: ReturnType<CounterManager['resolve']>,
+    handlers: DeploymentHandlers,
+  ) => {
+    deployment$
+      .pipe(
+        filter((d) => d.status !== 'in-progress'),
+        take(1),
+      )
+      .subscribe({
         next: (d) => {
           if (d.status === 'deployed') {
             setApi(d.api as DeployedCounter);
             setAddress(getManager().address ?? null);
             setStatus('connected');
             handlers.onDeployed(d.address);
-            sub.unsubscribe();
           } else if (d.status === 'failed') {
             const walletError = categorize(d.error);
             setError(walletError);
             setStatus('error');
             handlers.onError?.(walletError);
-            sub.unsubscribe();
           }
         },
         error: (e) => {
@@ -91,12 +99,11 @@ function useMidnightState(): MidnightContextValue {
           setError(walletError);
           setStatus('error');
           handlers.onError?.(walletError);
-          sub.unsubscribe();
         },
       });
-    },
-    [getManager],
-  );
+  },
+  [getManager],
+);
 
   const connect = useCallback(
     (addressArg?: string) => {
