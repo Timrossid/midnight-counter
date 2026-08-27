@@ -1,17 +1,5 @@
 import { type ContractAddress, fromHex, toHex } from '@midnight-ntwrk/midnight-js-protocol/compact-runtime';
-import {
-  BehaviorSubject,
-  catchError,
-  concatMap,
-  filter,
-  firstValueFrom,
-  interval,
-  map,
-  throwError,
-  timeout,
-  type Observable,
-} from 'rxjs';
-import { pipe as fnPipe } from 'fp-ts/function';
+import { BehaviorSubject, type Observable } from 'rxjs';
 import { type Logger } from 'pino';
 import { type ConnectedAPI, type InitialAPI } from '@midnight-ntwrk/dapp-connector-api';
 import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
@@ -76,7 +64,7 @@ function getSecretKey(): Uint8Array {
   return secret;
 }
 
-function getFirstCompatibleWallet(): InitialAPI | undefined {
+export function getFirstCompatibleWallet(): InitialAPI | undefined {
   const midnight = (window as any).midnight;
   if (!midnight) return undefined;
   return Object.values(midnight).find(
@@ -85,32 +73,6 @@ function getFirstCompatibleWallet(): InitialAPI | undefined {
       typeof wallet === 'object' &&
       'apiVersion' in wallet &&
       semver.satisfies((wallet as any).apiVersion, COMPATIBLE_CONNECTOR_API_VERSION),
-  );
-}
-
-function connectToWallet(logger: Logger, networkId: string): Promise<ConnectedAPI> {
-  return firstValueFrom(
-    fnPipe(
-      interval(100),
-      map(() => getFirstCompatibleWallet()),
-      filter((api): api is InitialAPI => !!api),
-      timeout({
-  first: 10_000,
-  with: () =>
-    throwError(
-      () =>
-        new Error(
-          'Could not find the Midnight Lace wallet. Install the extension and unlock it.',
-        ),
-    ),
-}),
-      concatMap(async (initialAPI) => initialAPI.connect(networkId)),
-      timeout({
-  first: 30_000,
-  with: () => throwError(() => new Error('Lace wallet failed to respond within 30 seconds.')),
-}),
-      catchError((error) => throwError(() => (error instanceof Error ? error : new Error('Wallet not authorized')))),
-    ),
   );
 }
 
@@ -127,10 +89,12 @@ export interface CounterProviders {
   midnightProvider: { submitTx: (tx: FinalizedTransaction) => Promise<TransactionId> };
 }
 
-async function initializeProviders(logger: Logger): Promise<CounterProviders> {
+async function initializeProviders(
+  logger: Logger,
+  connectedAPI: ConnectedAPI,
+): Promise<CounterProviders> {
   const networkId = NETWORK_ID as NetworkId;
   setNetworkId(networkId);
-  const connectedAPI = await connectToWallet(logger, networkId);
   const walletNetwork = (connectedAPI as { networkId?: NetworkId }).networkId;
   if (walletNetwork && walletNetwork !== networkId) {
     throw new Error(
@@ -177,8 +141,14 @@ export class CounterManager {
   #initializedProviders: Promise<CounterProviders> | undefined;
   #walletAddress: string | undefined;
   #walletNetworkId: NetworkId | undefined;
+  #connectedAPI: ConnectedAPI | undefined;
 
   constructor(private readonly logger: Logger) {}
+
+  /** Set the wallet API obtained by calling connect() synchronously in a user gesture. */
+  setConnectedApi(api: ConnectedAPI): void {
+    this.#connectedAPI = api;
+  }
 
   readonly deployments$: Observable<Array<Observable<CounterDeployment>>> = this.#deploymentsSubject;
 
@@ -210,7 +180,12 @@ export class CounterManager {
 
   private getProviders(): Promise<CounterProviders> {
     if (!this.#initializedProviders) {
-      this.#initializedProviders = initializeProviders(this.logger)
+      if (!this.#connectedAPI) {
+        return Promise.reject(
+          new Error('Wallet not connected. Connect the Lace wallet before resolving a contract.'),
+        );
+      }
+      this.#initializedProviders = initializeProviders(this.logger, this.#connectedAPI)
         .then((providers) => {
           const extra = providers as unknown as { walletAddress?: string; walletNetworkId?: NetworkId };
           this.#walletAddress = extra.walletAddress;

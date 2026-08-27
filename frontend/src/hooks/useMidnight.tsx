@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { filter, take } from 'rxjs';
 import { NetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import pino from 'pino';
-import { CounterManager, type DeployedCounter } from '../counterManager';
-import { DEFAULT_CONTRACT } from '../constants';
+import { CounterManager, getFirstCompatibleWallet, type DeployedCounter } from '../counterManager';
+import { DEFAULT_CONTRACT, NETWORK_ID } from '../constants';
 
 export type WalletErrorKind = 'not-installed' | 'rejected' | 'network-mismatch' | 'generic';
 
@@ -70,6 +71,20 @@ function useMidnightState(): MidnightContextValue {
     return managerRef.current;
   }, []);
 
+  // Connect the Lace wallet SYNCHRONOUSLY inside the user gesture. Wallets
+  // reject connect() when it is deferred (e.g. via a timer/poll), so we must
+  // call initialAPI.connect() directly in the click handler's call stack.
+  const connectWallet = useCallback(async (): Promise<ConnectedAPI> => {
+    if (!hasMidnightWallet()) {
+      throw new Error('Could not find the Midnight Lace wallet. Install the extension and unlock it.');
+    }
+    const initialAPI = getFirstCompatibleWallet();
+    if (!initialAPI) {
+      throw new Error('Could not find the Midnight Lace wallet. Install the extension and unlock it.');
+    }
+    return initialAPI.connect(NETWORK_ID);
+  }, []);
+
   const handleDeployment = useCallback(
   (
     deployment$: ReturnType<CounterManager['resolve']>,
@@ -106,41 +121,44 @@ function useMidnightState(): MidnightContextValue {
 );
 
   const connect = useCallback(
-    (addressArg?: string) => {
-      if (!hasMidnightWallet()) {
-        setError({
-          kind: 'not-installed',
-          message: 'Lace wallet not found. Install the Midnight Lace extension and unlock it.',
-        });
+    async (addressArg?: string) => {
+      setStatus('connecting');
+      setError(null);
+      let connectedAPI: ConnectedAPI;
+      try {
+        // Synchronous connect within the click gesture:
+        connectedAPI = await connectWallet();
+      } catch (e) {
+        setError(categorize(e));
         setStatus('error');
         return;
       }
-      setStatus('connecting');
-      setError(null);
+      getManager().setConnectedApi(connectedAPI);
       const target = addressArg ?? contractAddress;
       handleDeployment(getManager().resolve(target as never), { onDeployed: () => undefined });
     },
-    [contractAddress, getManager, handleDeployment],
+    [contractAddress, getManager, handleDeployment, connectWallet],
   );
 
   const deploy = useCallback((): Promise<string> => {
-    if (!hasMidnightWallet()) {
-      setError({
-        kind: 'not-installed',
-        message: 'Lace wallet not found. Install the Midnight Lace extension and unlock it.',
-      });
-      setStatus('error');
-      return Promise.reject(new Error('wallet not installed'));
-    }
     setStatus('connecting');
     setError(null);
     return new Promise<string>((resolve, reject) => {
-      handleDeployment(getManager().resolve(undefined as never), {
-        onDeployed: (addr) => resolve(addr),
-        onError: (walletError) => reject(new Error(walletError.message)),
-      });
+      connectWallet()
+        .then((connectedAPI) => {
+          getManager().setConnectedApi(connectedAPI);
+          handleDeployment(getManager().resolve(undefined as never), {
+            onDeployed: (addr) => resolve(addr),
+            onError: (walletError) => reject(new Error(walletError.message)),
+          });
+        })
+        .catch((e) => {
+          setError(categorize(e));
+          setStatus('error');
+          reject(e instanceof Error ? e : new Error(String(e)));
+        });
     });
-  }, [getManager, handleDeployment]);
+  }, [getManager, handleDeployment, connectWallet]);
 
   const setContractAddress = useCallback((addr: string) => {
     setContractAddressState(addr);
