@@ -55,6 +55,12 @@ function categorize(error: unknown): WalletError {
   if (/reject|denied|user closed|user rejected/i.test(message)) {
     return { kind: 'rejected', message: 'Connection request was rejected in the wallet.' };
   }
+  if (/insufficient|not enough|balance|funds|fee|dust/i.test(message)) {
+    return {
+      kind: 'generic',
+      message: `Transaction failed — your Lace account may lack Preprod test tokens for fees. Fund it via the Preprod faucet and retry. (${message})`,
+    };
+  }
   return { kind: 'generic', message };
 }
 

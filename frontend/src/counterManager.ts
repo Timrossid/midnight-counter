@@ -261,16 +261,29 @@ export class CounterManager {
 
   this.logger.error({ error }, 'Counter contract operation failed');
 
-  const err =
+  const rawMessage =
     error instanceof Error
-      ? new Error(
-          error.message ||
-            'Counter contract operation failed',
-          { cause },
-        )
-      : new Error(
-          JSON.stringify(error) || 'Unknown error',
-        );
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : JSON.stringify(error);
+  let detail = typeof rawMessage === 'string' && rawMessage.trim() ? rawMessage.trim() : '';
+  if (cause) {
+    let causeText: string;
+    try {
+      causeText = JSON.stringify(cause);
+    } catch {
+      causeText = String(cause);
+    }
+    if (causeText && causeText !== '{}') {
+      detail = detail
+        ? `${detail} | cause: ${causeText.slice(0, 800)}`
+        : `cause: ${causeText.slice(0, 800)}`;
+    }
+  }
+  if (!detail) detail = 'Counter contract operation failed';
+
+  const err = new Error(detail, { cause });
 
   deployment.next({ status: 'failed', error: err });
 }

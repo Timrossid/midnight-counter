@@ -16,6 +16,9 @@ function friendlyCircuitError(e: unknown): string {
   if (msg.includes('mismatched verifier keys')) {
     return 'Contract version mismatch. Point VITE_DEFAULT_CONTRACT at the deployed contract.';
   }
+  if (/insufficient|not enough|balance|funds|fee|dust/i.test(msg)) {
+    return 'Transaction failed — your Lace account may lack Preprod test tokens for fees. Fund it via the Preprod faucet and retry.';
+  }
   return msg || 'The circuit call failed. Check the browser console.';
 }
 
