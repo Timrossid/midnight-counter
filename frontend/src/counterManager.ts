@@ -55,8 +55,8 @@ const counterWitnesses = {
 // defaults (which collapse to `never` without the generated contract types
 // present at type-check time) don't block compilation. The resulting value is
 // passed as `any` to deployContract/findDeployedContract below.
-const compiledContract: any = CompiledContract.withWitnesses(
-  CompiledContract.make('counter', CounterContract.Contract),
+const compiledContract: any = (CompiledContract as any).withWitnesses(
+  (CompiledContract as any).make('counter', CounterContract.Contract),
   counterWitnesses,
 );
 
