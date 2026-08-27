@@ -95,14 +95,14 @@ async function initializeProviders(
 ): Promise<CounterProviders> {
   const networkId = NETWORK_ID as NetworkId;
   setNetworkId(networkId);
-  const walletNetwork = (connectedAPI as { networkId?: NetworkId }).networkId;
+  const config = await connectedAPI.getConfiguration();
+  const walletNetwork = config.networkId;
   if (walletNetwork && walletNetwork !== networkId) {
     throw new Error(
       `Network mismatch: your Lace wallet is on '${walletNetwork}' but this app requires '${networkId}'. ` +
         `Switch Lace to the ${networkId} network and reconnect.`,
     );
   }
-  const config = await connectedAPI.getConfiguration();
   const proofServerUri = config.proverServerUri ?? 'http://127.0.0.1:6300';
   const shieldedAddresses = await connectedAPI.getShieldedAddresses();
   const { unshieldedAddress } = await connectedAPI.getUnshieldedAddress();
@@ -148,6 +148,11 @@ export class CounterManager {
   /** Set the wallet API obtained by calling connect() synchronously in a user gesture. */
   setConnectedApi(api: ConnectedAPI): void {
     this.#connectedAPI = api;
+  }
+
+  /** True once a wallet API has been attached via setConnectedApi(). */
+  isConnected(): boolean {
+    return this.#connectedAPI !== undefined;
   }
 
   readonly deployments$: Observable<Array<Observable<CounterDeployment>>> = this.#deploymentsSubject;

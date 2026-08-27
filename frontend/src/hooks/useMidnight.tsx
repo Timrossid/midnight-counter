@@ -45,6 +45,13 @@ function categorize(error: unknown): WalletError {
   if (/network mismatch/i.test(message)) {
     return { kind: 'network-mismatch', message };
   }
+  if (/no account is connected/i.test(message)) {
+    return {
+      kind: 'rejected',
+      message:
+        'Lace has no account connected for this dApp. Open Lace, remove this site from Connected dApps, then reconnect and select an account.',
+    };
+  }
   if (/reject|denied|user closed|user rejected/i.test(message)) {
     return { kind: 'rejected', message: 'Connection request was rejected in the wallet.' };
   }
@@ -143,14 +150,26 @@ function useMidnightState(): MidnightContextValue {
   const deploy = useCallback((): Promise<string> => {
     setStatus('connecting');
     setError(null);
+    const manager = getManager();
+    const begin = (): Promise<string> =>
+      new Promise<string>((resolve, reject) => {
+        handleDeployment(manager.resolve(undefined as never), {
+          onDeployed: (addr) => resolve(addr),
+          onError: (walletError) => reject(new Error(walletError.message)),
+        });
+      });
+
+    // Reuse the existing connection when one is already established (calling
+    // connect() again can reset Lace's account authorization for this dApp).
+    if (manager.isConnected()) {
+      return begin();
+    }
+
     return new Promise<string>((resolve, reject) => {
       connectWallet()
         .then((connectedAPI) => {
-          getManager().setConnectedApi(connectedAPI);
-          handleDeployment(getManager().resolve(undefined as never), {
-            onDeployed: (addr) => resolve(addr),
-            onError: (walletError) => reject(new Error(walletError.message)),
-          });
+          manager.setConnectedApi(connectedAPI);
+          begin().then(resolve, reject);
         })
         .catch((e) => {
           setError(categorize(e));

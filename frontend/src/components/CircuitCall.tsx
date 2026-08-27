@@ -10,6 +10,9 @@ function friendlyCircuitError(e: unknown): string {
   if (msg.includes('Failed to fetch') || msg.toLowerCase().includes('proof server')) {
     return 'Could not reach the proof server. Start it with: npm run proof-server:start';
   }
+  if (/no account is connected/i.test(msg)) {
+    return 'Lace has no account connected for this dApp. Open Lace, remove this site from Connected dApps, then reconnect and select an account.';
+  }
   if (msg.includes('mismatched verifier keys')) {
     return 'Contract version mismatch. Point VITE_DEFAULT_CONTRACT at the deployed contract.';
   }
