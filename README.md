@@ -446,7 +446,7 @@ under **Artifacts → managed-counter**.
 | Step 6 — README with all required sections | ✅ |
 | Contract address in README | ✅ |
 | 5+ meaningful commits | ✅ (7 commits) |
-| Level 2 frontend | ✅ (React + Vite, Lace wallet, ZK circuits) |
+| Level 2 frontend | ✅ (React + Vite, Lace wallet, ZK circuits, deployed to Vercel) |
 
 ---
 
